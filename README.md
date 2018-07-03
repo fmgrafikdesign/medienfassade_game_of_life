@@ -1,4 +1,4 @@
-### Conway's Game of Life - Multiplayer
+# Conway's Game of Life - Multiplayer
 
 A special take on Conway's Game of Life. It has multiplayer capabilities, a progressive web app client and it can run on the "Medienfassade" (a big projection area visible from the street) of my university.
 
@@ -6,7 +6,7 @@ People can visit the app on their phone (or desktop), read up on the rules, plac
 
 Uses socket.io for communication, Node for the game server and html5 canvas for graphics.
 
-#### Installation
+## Installation
 
 Install [node](https://nodejs.org/en/) on your pc. Clone the repo, then run
 `npm install`
