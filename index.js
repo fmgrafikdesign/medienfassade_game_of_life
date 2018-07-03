@@ -6,17 +6,21 @@ var io = require('socket.io')(http);
 
 var port = 61162;
 
-//incremental uids for players
-var uid = 0;
+// A constant for dead cells
+const dead = -1;
+// A constant for neutral cells
+const neutral = 0;
+//incremental uids for players, starting at 1
+var uid = neutral + 1;
 
-app.get('/', function(req, res) {
+app.get('/', function (req, res) {
     res.sendFile(__dirname + '/client.html');
 });
 
 app.use('/', express.static(__dirname + '/public/'));
 app.use('/js', express.static(__dirname + '/node_modules/'));
 
-http.listen(port, function(){
+http.listen(port, function () {
     console.log('listening on port %s', port);
 });
 
@@ -31,19 +35,46 @@ const time_per_generation = 2000;
 var width = 385;
 var height = 52;
 
-//width = 8;
-//height = 7;
+//width = 40;
+//height = 30;
 
 // Wacky way to make a 2D array in JS
 var board = new Array(height);
 for (var i = 0; i < height; i++) {
     board[i] = new Array(width);
 }
+
 // Going to use multiple 2D arrays and swap them
 var next = new Array(height);
 for (i = 0; i < height; i++) {
     next[i] = new Array(width);
 }
+
+
+var empty = new Array(height);
+for (i = 0; i < height; i++) {
+    empty[i] = new Array(width);
+    for (var j = 0; j < empty[i].length; j++) {
+        empty[i][j] = -1;
+    }
+}
+// Extra array for hotswapping in changes
+var changes = new Array(height);
+for (i = 0; i < height; i++) {
+    changes[i] = new Array(width);
+    for (var j = 0; j < changes[i].length; j++) {
+        changes[i][j] = -1;
+    }
+}
+function resetChangesArray() {
+    for (i = 0; i < height; i++) {
+        changes[i] = new Array(width);
+        for (var j = 0; j < changes[i].length; j++) {
+            changes[i][j] = -1;
+        }
+    }
+}
+
 
 // Our game object.
 var game = {
@@ -59,38 +90,41 @@ var game = {
     generation: 0,
 
     // For testing purposes: fill randomly
-    init: function() {
+    init: function () {
 
+        for (var i = 0; i < game.rules.height; i++) {
+
+            for (var j = 0; j < game.rules.width; j++) {
+                board[i][j] = Math.floor(Math.random() + 0) - 1;
+                next[i][j] = -1;
+            }
+        }
+
+        //console.log(board);
+
+        // Initialize the board with empty cells
         /*
         for (var i = 0; i < game.rules.height; i++) {
 
             for (var j = 0; j < game.rules.width; j++) {
-                board[i][j] = Math.floor(Math.random() + .1);
-                next[i][j] = 0;
+                board[i][j] = neutral;
+                next[i][j] = neutral;
             }
         }
-*/
-
-        // Initialize the board with 0 and 1
-        for (var i = 0; i < game.rules.height; i++) {
-
-            for (var j = 0; j < game.rules.width; j++) {
-                board[i][j] = 0;
-                next[i][j] = 0;
-            }
-        }
-/*
-        board[4][1] = 1;
-        board[4][2] = 1;
-        board[5][1] = 1;
-        board[5][2] = 1;
-*/
+        */
+        /*
+                board[4][1] = 1;
+                board[4][2] = 1;
+                board[5][1] = 1;
+                board[5][2] = 1;
+        */
         game.state = board;
 
     },
 
     // TODO: Factor in player colors
-    generate: function() {
+    generate: function () {
+        //var timestamp = Date.now()
         // Loop through every spot in our 2D array and check spots neighbors
         for (var x = 0; x < game.rules.height; x++) {
             for (var y = 0; y < game.rules.width; y++) {
@@ -99,33 +133,44 @@ var game = {
                 for (var i = -1; i <= 1; i++) {
                     for (var j = -1; j <= 1; j++) {
                         // If out of bounds, skip!
-                        if(x+i < 0 || y+j < 0 || x+i >= height || y+j >= width) {
+                        if (x + i < 0 || y + j < 0 || x + i >= height || y + j >= width) {
                             continue;
                         }
-                        //console.log(x+i);
-                        neighbors += board[x+i][y+j];
+                        if (board[x + i][y + j] !== dead) {
+                            neighbors += 1;
+                        }
                     }
                 }
 
-                // A little trick to subtract the current cell's state since
-                // we added it in the above loop
-                neighbors -= board[x][y];
-                // Rules of Life
+                // Substract the cells active state from the neighbor calculation if it's alive
+                if (board[x][y] !== dead) {
+                    neighbors--;
+                }
+                //console.log(neighbors);
 
-                if      ((board[x][y] == 1) && (neighbors <  2)) next[x][y] = 0;           // Loneliness
-                else if ((board[x][y] == 1) && (neighbors >  3)) next[x][y] = 0;           // Overpopulation
-                else if ((board[x][y] == 0) && (neighbors == 3)) next[x][y] = 1;           // Reproduction
-                else                                             next[x][y] = board[x][y]; // Stasis
+                // Rules of Life
+                // 0 = neutral, -1 = dead, everything else is the uid of a player to signal ownership
+                if ((board[x][y] !== dead) && (neighbors < 2)) next[x][y] = dead;           // Loneliness
+                else if ((board[x][y] !== dead) && (neighbors > 3)) next[x][y] = dead;           // Overpopulation
+
+                // TODO: Don't make them neutral, calculate who they belong to
+                // TODO: OR: Mix their color based on owner percentage (either factor all in or majority or ...)
+                else if ((board[x][y] === dead) && (neighbors === 3)) next[x][y] = neutral;           // Reproduction
+                else next[x][y] = board[x][y]; // Stasis ('ALLES BLEIBT SO WIES IS!')
             }
         }
 
         // Swap!
         var temp = board;
+
         board = next;
         next = temp;
 
         game.state = board;
-        //console.log(board);
+
+        // first: now, second: before
+        calculateBoardDifferences(game.state, next);
+        //console.log('generation took ' + (Date.now() - timestamp) + 'ms');
     }
 };
 
@@ -133,11 +178,12 @@ game.init();
 console.log('initialized.');
 
 // This is how we get the game to unfold.
-setInterval(function() {
+setInterval(function () {
     game.generate();
     game.generation++;
     //console.log(game.generation);
     sendNewGenerationToClients();
+    increaseAvailableCells();
 
 }, game.rules.time_per_generation);
 
@@ -170,34 +216,35 @@ setInterval(function() {
  * **/
 
 
-io.on('connection', function(socket) {
+io.on('connection', function (socket) {
     console.log('a user connected! | ' + socket.id);
 
     // Send game data to client (once on connection)
     sendInitialData(socket);
 
     // Receive information about new player
-    socket.on('new player', function(player, fn) {
+    socket.on('new player', function (player, fn) {
 
         var name = player.name.trim();
 
         // If this player already joined the game, deny.;
-        if(game.players.find(function(player) {
+        if (game.players.find(function (player) {
                 return player.id == socket.id;
             })) {
             fn('player with same id (' + socket.id + ') found, preventing them from joining.');
             return false;
-        };
+        }
+        ;
 
         // If this player name already exists, deny.;
-        if(game.players.find(function(server_player) {
+        if (game.players.find(function (server_player) {
                 return server_player.name == name;
             })) {
             fn('player with this name already exists, preventing you from joining.');
             return false;
-        };
+        }
 
-        if(player.name.length === 0) {
+        if (player.name.length === 0) {
             fn('Your name can\'t be empty, sweetheart.');
             return false;
         }
@@ -207,30 +254,33 @@ io.on('connection', function(socket) {
     });
 
     // Remove player from statistics on disconnect
-    socket.on('disconnect', function() {
+    socket.on('disconnect', function () {
         console.log('player disconnected | ' + socket.id);
         playerDisconnected(socket.id);
-    })
+    });
 
-    socket.on('place cells', function(cells, result) {
+    socket.on('place cells', function (cells, result) {
         // cells: The cells (their position) the player wants to place
 
         var player = getPlayerBySocketId(socket.id);
-        console.log('player ' + player.name + ' is trying to place cells, checking...' );
+        console.log('player ' + player.name + ' is trying to place cells, checking...');
 
-        var checkresult = canPlaceCells(player,cells);
+        var checkresult = canPlaceCells(player, cells);
 
         // If the wanted action is legit, place the cells
-        if(checkresult === true) {
+        if (checkresult === true) {
             console.log('passed check, placing cells');
+
             // Place cells
             placeCells(player, cells);
 
+            // Diff the game state and the new board state and send it to clients
+            //console.log(old);
+            //console.log(board);
+            //calculateBoardDifferences(old, board);
+
             // Send the player his available cells
             socket.emit('player cells', player.availablecells);
-
-            // Update the board for all players
-            sendGameboardToClients();
 
             return true;
         } else {
@@ -243,20 +293,20 @@ io.on('connection', function(socket) {
 
 // Gets a player by socket id
 function getPlayerBySocketId(id) {
-    return game.players.find(function(player) {
+    return game.players.find(function (player) {
         return player.id == id;
     });
 }
 
 // Gets a player by uid
 function getPlayerByUid(uid) {
-    return game.players.find(function(player) {
+    return game.players.find(function (player) {
         return player.uid == uid;
     });
 }
 
 function getPlayerName(id) {
-    return game.players.find(function(player) {
+    return game.players.find(function (player) {
         return player.id == id;
     })
 }
@@ -268,44 +318,55 @@ function canPlaceCells(player, cells) {
     // cells looks like this: Array [ {x:5, y:3}, {x:2, y:18}, ... ]
 
     // cells is not empty
-    if(cells.length === 0 || !cells) {
+    if (cells.length === 0 || !cells) {
         return 'You haven\'t selected any cells to be placed yet.';
     }
 
     // not more than available to the player
-    if(cells.length > player.availablecells) {
+    if (cells.length > player.availablecells) {
         return 'You\'re trying to place more cells than you currently can.';
     }
 
     // does not overlap with existing cells
     var overlap = false;
     // Check for each
-    cells.forEach(function(cell) {
-        if(game.board[cell.y][cell.x]) {
+    cells.forEach(function (cell) {
+        if (game.board[cell.y][cell.x] !== dead) {
             overlap = true;
-            console.log('overlap at x: %s, y: %s', cell.x, cell.y)
+            //console.log('overlap at x: %s, y: %s', cell.x, cell.y)
         }
     });
 
-    if(overlap) {
+    if (overlap) {
         return 'You\'re trying to place cells on top of other cells. That\'s not possible.';
     }
 
-    console.log('check took ' + (Date.now() - timestamp) + 'ms');
+    //console.log('check took ' + (Date.now() - timestamp) + 'ms');
     return true;
 
 }
 
 function placeCells(player, cells) {
     var uid = player.uid;
+    var timestamp = Date.now();
 
-    // Place the cells on the board
-    cells.forEach(function(cell) {
-        board[cell.y][cell.x] = 1;
+    // Place the cells on the changes board and the game board
+    cells.forEach(function (cell) {
+        changes[cell.y][cell.x] = uid;
+        board[cell.y][cell.x] = uid;
     });
+
+    console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
+     // first: now, second: before
+     calculateBoardDifferences(changes, empty);
+
+    console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
+     // Reset the changes array
+     resetChangesArray();
 
     // Substract the amount of cells placed from his available cells
     player.availablecells -= cells.length;
+    console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
 }
 
 /** sendInitialData
@@ -336,7 +397,7 @@ function scrubPlayersForClient(players) {
     // Remove reference so we can return another array
     var duplicate = JSON.parse(JSON.stringify(players));
 
-    duplicate.forEach(function(player) {
+    duplicate.forEach(function (player) {
         // Remove info how many cells are available for each player
         delete player.availablecells;
     });
@@ -388,12 +449,12 @@ function newPlayerConnected(socket, player) {
 
 function playerDisconnected(id) {
     // Get the player from the game object
-    var player = game.players.find(function(player) {
+    var player = game.players.find(function (player) {
         return player.id == id;
     });
 
     // If no player was found, abort
-    if(!player) return;
+    if (!player) return;
 
     // Set him to inactive
     player.active = false;
@@ -402,9 +463,9 @@ function playerDisconnected(id) {
     io.emit('player disconnect', id);
 
     // Check if he has any cells, delete if not.
-    if(!playerHasCellsOnBoard(id)) {
+    if (!playerHasCellsOnBoard(id)) {
         console.log('No active cells remaining, deleting player ' + id + '...');
-        game.players = game.players.filter(function(player) {
+        game.players = game.players.filter(function (player) {
             return player.id != id;
         });
 
@@ -428,17 +489,31 @@ function sendNewGenerationToClients() {
     io.emit('game new generation', Date.now());
 
     // Send playing field update
-    sendGameboardToClients()
+    //sendGameboardToClients()
+}
+
+/**
+ * Increase the available cells of players, up to the maximum amount
+ */
+function increaseAvailableCells() {
+    game.players.forEach(function(player) {
+        player.availablecells = Math.min( player.availablecells+1, game.rules.cells_per_player);
+    })
 }
 
 function sendGameboardToClients() {
     // TODO: Only send updates or otherwise compress the data sent.
-    io.emit('game update board', game.state);
+    //io.emit('game update board', game.state);
 
     // use this for a better compressed version. To be implemented soon(tm)
     // io.emit('game board update', game.state);
 }
 
+/*
+function SendGameboardUpdatesToClients(updates) {
+    io.emit('game board update', updates);
+}
+*/
 /**
  * Returns true if a given player (id) has any living cells on the board. False if not.
  * Useful to check if you can kick a player from the game object after he disconnected.
@@ -448,19 +523,93 @@ function playerHasCellsOnBoard(id) {
     // if: has active cells
     // check again soon!
 
-    var active = game.players.find(function(player) {
+    var active = game.players.find(function (player) {
         return player.id == id;
     });
 
     //if(!active) return;
 
-    if(active.cells) {
+    if (active.cells) {
         console.log('has cells atm. Checking again in 5s.');
-        setTimeout(function() {
+        setTimeout(function () {
             playerHasCellsOnBoard(id);
         }, 5000);
         return true;
     } else {
         return false;
     }
+}
+
+/** This is what we want in the end:
+ *
+ *  [
+ *      [y,[[x,i],[x,i],[x,i]]],
+ *      [y,[[x,i],[x,i],[x,i]]],
+ *      ...
+ *  ]
+ */
+
+/**
+ * Calculates the differences between a "before" and "after" state and sends the differences to all clients
+ * for redrawing their grid
+ * @param now
+ * @param before
+ * @returns {Array}
+ */
+
+function calculateBoardDifferences(now, before, print_result) {
+
+    var timestamp = Date.now();
+
+    var differences = [];
+
+    var i = 0;
+
+    // Check for each row
+    for (var y = 0; y < game.rules.height; y++) {
+        var difference_in_row = false;
+
+        for (var x = 0; x < game.rules.width; x++) {
+
+            // If the cells is not different, skip it
+            if (now[y][x] === before[y][x]) continue;
+
+            // If the cell is different, store its position and player in the array
+            else {
+                // If there wasn't a difference up to this point, create space in the array now
+                if (!difference_in_row) {
+                    differences[i] = [y, []];
+                    difference_in_row = true;
+                }
+                //console.log(differences[i]);
+
+                // If the cell is dead now, just push its position, it's assumed dead
+                if (now[y][x] === dead) {
+                    differences[i][1].push(x);
+                }
+
+                // Else push an array of position and player id
+                else {
+                    differences[i][1].push([x, now[y][x]]);
+                }
+            }
+
+        }
+
+        //increment the i counter for the next row
+        if (difference_in_row) {
+            i++;
+        }
+    }
+
+    //console.log('calculating differences took ' + (Date.now() - timestamp) + 'ms');
+    //
+    io.emit('game board update', differences);
+
+    if(print_result) {
+        console.log(differences);
+        console.log('calculating differences took ' + (Date.now() - timestamp) + 'ms');
+    }
+
+    return differences;
 }

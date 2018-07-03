@@ -11,7 +11,8 @@ var Settings = {
 
     rendering: {
         grid_background: '#333',
-        grid: '#6b6b6b'
+        grid: '#6b6b6b',
+        neutral: '#ddd'
     }
 };
 

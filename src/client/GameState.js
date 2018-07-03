@@ -23,6 +23,10 @@ socket.on('game new generation', function() {
     // Set the timestamp of the current generation for progress bar calculations
     GameState.generation.timestamp = window.performance.now();
     GameState.generation.count++;
+
+    GameState.currently_available = Math.min(GameState.currently_available+1, GameState.rules.cells_per_player);
+    m.redraw();
+
 });
 
 socket.on('player cells', function(amount) {

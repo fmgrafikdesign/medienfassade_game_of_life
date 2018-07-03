@@ -10,12 +10,12 @@ var Players = {
 socket.on('game players', function(players) {
     //console.log('received players: ');
     Players.players = players;
-    //console.log(Players);
+    console.log(Players.players);
 });
 
 socket.on('game add player', function(player) {
     Players.players.push(player);
-    //console.log(Players.players);
+    console.log(Players.players);
 });
 
 socket.on('player disconnect', function(id) {
