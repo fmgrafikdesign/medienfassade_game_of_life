@@ -5,14 +5,13 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack src/client/client.js --output public/app.js -d --watch",
-    "build": "webpack src/index.js --output bin/app.js -p"
+    "build": "webpack src/client/client.js --output public/app.js -p"
   },
   "author": "Fabian Mohr",
   "license": "UNLICENSED",
   "dependencies": {
     "express": "^4.15.2",
     "mithril": "^1.1.6",
-    "p5": "^0.6.1",
     "socket.io": "^2.1.1",
     "socket.io-client": "^2.1.1",
     "vanilla-picker": "^2.2.0"

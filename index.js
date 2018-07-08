@@ -95,7 +95,7 @@ var game = {
         for (var i = 0; i < game.rules.height; i++) {
 
             for (var j = 0; j < game.rules.width; j++) {
-                board[i][j] = Math.floor(Math.random() + 0) - 1;
+                board[i][j] = Math.floor(Math.random() + 0.5) - 1;
                 next[i][j] = -1;
             }
         }
@@ -269,7 +269,7 @@ io.on('connection', function (socket) {
 
         // If the wanted action is legit, place the cells
         if (checkresult === true) {
-            console.log('passed check, placing cells');
+            //console.log('passed check, placing cells');
 
             // Place cells
             placeCells(player, cells);
@@ -281,13 +281,19 @@ io.on('connection', function (socket) {
 
             // Send the player his available cells
             socket.emit('player cells', player.availablecells);
+            result(true);
 
             return true;
         } else {
             result(checkresult);
         }
 
-    })
+    });
+
+    socket.on('debug msg', function(msg) {
+        console.log('debug from client:');
+        console.log(msg);
+    });
 
 });
 
@@ -356,17 +362,17 @@ function placeCells(player, cells) {
         board[cell.y][cell.x] = uid;
     });
 
-    console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
+    //console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
      // first: now, second: before
      calculateBoardDifferences(changes, empty);
 
-    console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
+    //console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
      // Reset the changes array
      resetChangesArray();
 
     // Substract the amount of cells placed from his available cells
     player.availablecells -= cells.length;
-    console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
+    //console.log('placing cells took ' + (Date.now()-timestamp) + 'ms');
 }
 
 /** sendInitialData
@@ -554,6 +560,7 @@ function playerHasCellsOnBoard(id) {
  * for redrawing their grid
  * @param now
  * @param before
+ * @param print_result
  * @returns {Array}
  */
 

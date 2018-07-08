@@ -8,6 +8,7 @@ var Settings = {
     name: '',
     darktheme: true,
     setupcompleted: false,
+    touchdistancetreshold: 5,
 
     rendering: {
         grid_background: '#333',

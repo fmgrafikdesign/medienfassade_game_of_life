@@ -1,20 +1,19 @@
 var m = require('mithril');
-var GameBoardPlaceCells = require('./GameBoardPlaceCells');
+var GameBoardSelectedCells = require('./GameBoardSelectedCells');
 
 module.exports = {
     view: function() {
-        return m('.button-wrapper', m('.place-button', { onclick: placeSelection },'Platzieren'));
+        return m('.button-wrapper', m('a.place-button', { onclick: placeSelection },'Platzieren'));
     }
 };
 
 function placeSelection() {
-    console.log('trying to place cells...');
-    GameBoardPlaceCells.placeCells();
+    GameBoardSelectedCells.placeCells();
 };
 
 /*
 
-20.020 cells in total (with current game setup)
+20.020 selectedCells in total (with current game setup)
 
 [{x:1,y:5},]
 10 bits per cell (ohne Spielerinformation)
@@ -58,12 +57,12 @@ Educated guess: Es werden sich fast immer weniger als 43% der Zellen pro Generat
     [1,[[3,4],[4,4]]]
 ]
 */
-// 12 bits for a single cells (worst case)
-// 18 bits for 2 cells (9 bits each)
-// 30 bits for 4 cells (7.5 bits each)
+// 12 bits for a single selectedCells (worst case)
+// 18 bits for 2 selectedCells (9 bits each)
+// 30 bits for 4 selectedCells (7.5 bits each)
 
-// Since the game board has more height than width, we catch more cells per row than per column
-// If all cells in a row change, it's cheap this way: 6 chars per cell, 7 chars overhead per row
+// Since the game board has more height than width, we catch more selectedCells per row than per column
+// If all selectedCells in a row change, it's cheap this way: 6 chars per cell, 7 chars overhead per row
 // (7 + (width * 6)) * 52
 // ~120.500 bits mit Spielerinformation für das ganze Spielfeld.
 // -> Im Worst Case fast so gut wie die erste Methode, die immer das ganze Spielfeld sendet

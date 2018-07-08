@@ -1,14 +1,15 @@
 var m = require('mithril');
 var GameState = require('./GameState');
 var GamePlayers = require('./GamePlayers');
+var GameBoardSelectedCells = require('./GameBoardSelectedCells');
 var Settings = require('./Settings');
 var socket = require('./Socket');
 
 // initial game board
 socket.on('game board', function (board) {
     GameBoard.board = board;
-    console.log('initial board:');
-    console.log(board);
+    //console.log('initial board:');
+    //console.log(board);
 });
 
 // update game board
@@ -87,6 +88,12 @@ function updateBoard(updates) {
 // Pixels per cell, including surrounding border
 var pixels_per_cell = 20;
 
+// More pixels per cell on high-resolution displays
+//serverdebug(window.devicePixelRatio);
+if(window.devicePixelRatio > 1.5) {
+    pixels_per_cell = 26;
+}
+
 const dead = -1;
 const neutral = 0;
 
@@ -103,7 +110,6 @@ var settings = Settings.rendering;
 
 // Draw the grid
 var grid;
-
 function drawGrid() {
     //console.log('generating grid...');
     var grid_canvas = document.createElement('canvas');
@@ -130,10 +136,8 @@ function drawGrid() {
     grid = grid_canvas;
 }
 
+// Draw activecells
 var cells;
-
-
-
 function drawCells() {
     var board = GameBoard.board;
     //console.log(board);
@@ -149,8 +153,6 @@ function drawCells() {
         colors[player.uid] = player.color;
     });
 
-    //console.log(colors);
-
     for (var row = 0; row < board.length; row++) {
         for (var column = 0; column < board[row].length; column++) {
 
@@ -163,12 +165,36 @@ function drawCells() {
         }
     }
 
-    //grid_ctx.fillRect(10, 10, 100, 100);
-
-    //console.log(grid_canvas);
     cells = cells_canvas;
 }
 
+// Draw selected cells
+var selection;
+function drawSelection() {
+    var board = GameBoard.board;
+
+    var selection_canvas = document.createElement('canvas');
+    var selection_ctx = selection_canvas.getContext('2d');
+    selection_canvas.width = GameState.rules.width * pixels_per_cell;
+    selection_canvas.height = GameState.rules.height * pixels_per_cell;
+
+    // Cache player colors
+//    var colors = { '0': Settings.rendering.neutral };
+//    GamePlayers.players.forEach(function(player) {
+//        colors[player.uid] = player.color;
+// });
+
+    var selected = GameBoardSelectedCells.selectedCells;
+
+    selection_ctx.strokeStyle = Settings.color;
+    selection_ctx.lineWidth = 4;
+    selected.forEach(function(selectedcell) {
+        selection_ctx.strokeRect((selectedcell.x) * pixels_per_cell + border_width / 2, (selectedcell.y) * pixels_per_cell + border_width / 2, pixels_per_cell - border_width, pixels_per_cell - border_width);
+    });
+
+    selection = selection_canvas;
+
+}
 
 function setupCanvas(dom) {
     var canvas = dom;
@@ -181,7 +207,7 @@ function setupCanvas(dom) {
 
     // Coordinates when dragging starts
     var camDragStart = {x: 0, y: 0};
-    var dragStart = {x: 0, y: 0};
+    var touchStart = {x: 0, y: 0};
     var dragDelta = {x: 0, y: 0};
 
     window.addEventListener('resize', resizeCanvas, false);
@@ -206,7 +232,7 @@ function setupCanvas(dom) {
     }
 
     function redraw() {
-        //console.log('redrawing');
+        console.log('redrawing');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -219,12 +245,22 @@ function setupCanvas(dom) {
         }
         ctx.drawImage(grid, 0, 0);
 
-        // Draw the cells on the canvas
+        // Draw the active cells on the canvas
         if (!cells) {
             drawCells();
         }
         ctx.drawImage(cells, 0, 0);
+
+        // Draw the player selection on the canvas
+        if (!selection) {
+            drawSelection();
+        }
+        ctx.drawImage(selection, 0, 0);
+
     }
+
+    var dragCanvas = false;
+    var dragSelection = false;
 
     canvas.addEventListener('touchstart', startDrag);
     canvas.addEventListener('mousedown', startDrag);
@@ -234,8 +270,8 @@ function setupCanvas(dom) {
 
     function startDrag(event) {
         //console.log(event);
-        dragStart.x = event.x || event.changedTouches[0].pageX;
-        dragStart.y = event.y || event.changedTouches[0].pageY;
+        touchStart.x = event.x || event.changedTouches[0].pageX;
+        touchStart.y = event.y || event.changedTouches[0].pageY;
 
         camDragStart.x = cam.x;
         camDragStart.y = cam.y;
@@ -244,28 +280,64 @@ function setupCanvas(dom) {
 
         canvas.addEventListener('touchmove', whileDragging);
         canvas.addEventListener('mousemove', whileDragging);
+        //console.log('startDrag');
+
+        //event.preventDefault();
+        //serverdebug('startDrag');
     };
 
     function whileDragging(event) {
         //console.log(event);
-        dragDelta.x = (event.x || event.changedTouches[0].pageX) - dragStart.x;
-        dragDelta.y = (event.y || event.changedTouches[0].pageY) - dragStart.y;
+        dragDelta.x = (event.x || event.changedTouches[0].pageX) - touchStart.x;
+        dragDelta.y = (event.y || event.changedTouches[0].pageY) - touchStart.y;
+
+
+        var distance = Math.sqrt(dragDelta.x*dragDelta.x + dragDelta.y*dragDelta.y);
+        //serverdebug(distance);
+
+        //console.log(distance);
+
+        if(!dragCanvas && distance > Settings.touchdistancetreshold ) {
+            dragCanvas = true;
+        }
+
         //console.log(dragDelta);
+        //serverdebug(dragDelta);
         updateTranslation();
 
         //console.log(dragDelta);
+        //console.log('whileDragging');
+        //event.preventDefault();
+        //serverdebug('whileDragging');
     };
 
     function endDrag(event) {
-        //console.log(event);
-        dragDelta.x = (event.x || event.changedTouches[0].pageX) - dragStart.x;
-        dragDelta.y = (event.y || event.changedTouches[0].pageY) - dragStart.y;
+
+        // If we were dragging something, just stop dragging
+        if(dragCanvas || dragSelection) {
+            dragCanvas = false;
+            dragSelection = false;
+            //console.log('mouseup after dragging');
+        }
+        // no dragging happened, select the cell we touched.
+        else {
+            // Calculate the x and y cell we clicked. Substract the current camera offset!
+            //console.log("%s %s", cam.x, cam.y)
+            var coordinates = { x: Math.ceil((touchStart.x - cam.x)/ pixels_per_cell), y: Math.ceil((touchStart.y  - cam.y) / pixels_per_cell )};
+            //console.log('selected cell x: %s, y: %s', coordinates.x, coordinates.y);
+            GameBoardSelectedCells.select(coordinates);
+        }
+        //console.log('endDrag');
+        dragDelta.x = (event.x || event.changedTouches[0].pageX) - touchStart.x;
+        dragDelta.y = (event.y || event.changedTouches[0].pageY) - touchStart.y;
 
 
         canvas.removeEventListener('touchmove', whileDragging);
         canvas.removeEventListener('mousemove', whileDragging);
 
         updateTranslation();
+        event.preventDefault();
+        //serverdebug('endDrag');
     }
 
     function updateTranslation() {
@@ -307,7 +379,16 @@ var GameBoard = {
         width = GameState.rules.width;
         height = GameState.rules.height;
         drawGrid();
+    },
+
+    redrawSelection: function() {
+        drawSelection();
+        GameBoard.canvas.redraw();
     }
 };
 
 module.exports = GameBoard;
+
+function serverdebug(msg) {
+    socket.emit('debug msg', msg);
+}
