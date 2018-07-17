@@ -322,3 +322,7 @@ textarea:focus, input:focus, button:focus{
 .gameboard {
     display: block;
 }
+
+.projector .available-cells, .projector .button-wrapper, .projector .footer-menu {
+    display: none;
+}

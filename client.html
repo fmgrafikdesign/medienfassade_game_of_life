@@ -8,8 +8,13 @@
     <link rel="stylesheet" href="style.css" type="text/css">
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,300,400,600,700" rel="stylesheet">
     <script type="text/javascript" src="/vanilla-picker.min.js"></script>
+    <script type="text/javascript">
+        function toggleBody() {
+            document.querySelector('body').classList.toggle('projector');
+        }
+    </script>
 </head>
-<body>
+<body onkeypress="toggleBody()">
 <script src="/app.js"></script>
 </body>
 </html>
