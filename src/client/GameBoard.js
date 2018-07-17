@@ -51,6 +51,8 @@ socket.on('game board update', function (board) {
         GameBoard.canvas.redraw();
     }
 
+    GamePlayers.updatePlayerCellCount(GameBoard.board);
+
     //console.log(GameBoard.board);
 });
 
@@ -136,7 +138,7 @@ function drawGrid() {
     grid = grid_canvas;
 }
 
-// Draw activecells
+// Draw active cells
 var cells;
 function drawCells() {
     var board = GameBoard.board;
@@ -232,7 +234,7 @@ function setupCanvas(dom) {
     }
 
     function redraw() {
-        console.log('redrawing');
+        //console.log('redrawing');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 

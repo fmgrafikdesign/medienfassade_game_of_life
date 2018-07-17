@@ -31,9 +31,9 @@ http.listen(port, function () {
 /** GAME VARIABLES **/
 
 // Based on current information (21.06.18) the available pixels on the wall visible to the outside are about 3850 x 520
-const time_per_generation = 2000;
-var width = 385;
-var height = 52;
+const time_per_generation = 1500;
+var width = 99;
+var height = 51;
 
 //width = 40;
 //height = 30;
@@ -95,7 +95,7 @@ var game = {
         for (var i = 0; i < game.rules.height; i++) {
 
             for (var j = 0; j < game.rules.width; j++) {
-                board[i][j] = Math.floor(Math.random() + 0.5) - 1;
+                board[i][j] = Math.floor(Math.random() + 0.1) - 1;
                 next[i][j] = -1;
             }
         }
@@ -126,10 +126,12 @@ var game = {
     generate: function () {
         //var timestamp = Date.now()
         // Loop through every spot in our 2D array and check spots neighbors
+        var log = true;
         for (var x = 0; x < game.rules.height; x++) {
             for (var y = 0; y < game.rules.width; y++) {
                 // Add up all the states in a 3x3 surrounding grid
                 var neighbors = 0;
+                var neighbors_owners = {};
                 for (var i = -1; i <= 1; i++) {
                     for (var j = -1; j <= 1; j++) {
                         // If out of bounds, skip!
@@ -138,6 +140,10 @@ var game = {
                         }
                         if (board[x + i][y + j] !== dead) {
                             neighbors += 1;
+                            if(neighbors_owners[board[x + i][y + j]] === undefined) {
+                                neighbors_owners[board[x + i][y + j]] = 0;
+                            }
+                            neighbors_owners[board[x + i][y + j]]++;
                         }
                     }
                 }
@@ -153,9 +159,10 @@ var game = {
                 if ((board[x][y] !== dead) && (neighbors < 2)) next[x][y] = dead;           // Loneliness
                 else if ((board[x][y] !== dead) && (neighbors > 3)) next[x][y] = dead;           // Overpopulation
 
-                // TODO: Don't make them neutral, calculate who they belong to
-                // TODO: OR: Mix their color based on owner percentage (either factor all in or majority or ...)
-                else if ((board[x][y] === dead) && (neighbors === 3)) next[x][y] = neutral;           // Reproduction
+                else if ((board[x][y] === dead) && (neighbors === 3)) {
+                    var owner = Object.keys(neighbors_owners).reduce(function (a, b) { return neighbors_owners[a] > neighbors_owners[b] ? a : b });
+                    next[x][y] = owner; // Reproduction
+                }
                 else next[x][y] = board[x][y]; // Stasis ('ALLES BLEIBT SO WIES IS!')
             }
         }
@@ -179,10 +186,14 @@ console.log('initialized.');
 
 // This is how we get the game to unfold.
 setInterval(function () {
+
+    //resetCellCounts();
+
     game.generate();
     game.generation++;
     //console.log(game.generation);
     sendNewGenerationToClients();
+    //sendCellCountToClients();
     increaseAvailableCells();
 
 }, game.rules.time_per_generation);
@@ -215,6 +226,22 @@ setInterval(function () {
  *  - server: updates of playing field on new generation
  * **/
 
+function resetCellCounts() {
+    game.players.forEach(function(player) {
+        player.cells = 0;
+    })
+}
+
+function sendCellCountToClients() {
+
+    var cellcount = {};
+
+    game.players.forEach(function(player) {
+        cellcount[player.uid] = player.cells;
+    });
+
+    io.emit('player update cell count', cellcount);
+}
 
 io.on('connection', function (socket) {
     console.log('a user connected! | ' + socket.id);
