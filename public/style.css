@@ -323,6 +323,8 @@ textarea:focus, input:focus, button:focus{
     display: block;
 }
 
-.projector .available-cells, .projector .button-wrapper, .projector .footer-menu {
-    display: none;
+@media screen and (min-width: 992px) {
+    .projector .available-cells, .projector .button-wrapper, .projector .footer-menu {
+        display: none;
+    }
 }
